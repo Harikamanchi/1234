@@ -2,60 +2,65 @@ import time
 from flask import Flask, request, jsonify
 import numpy as np
 import pickle
-from waitress import serve  # Using Waitress to serve the app
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Load the trained model (ensure this path is correct)
-with open('mental_health_model.pkl', 'rb') as model_file:
+# Load the trained model
+with open("mental_health_model.pkl", "rb") as model_file:
     model = pickle.load(model_file)
 
-# Define the prediction route
+# Home route (for testing)
+@app.route("/")
+def home():
+    return "Mental Health API Running"
+
+# Prediction route
 @app.route("/predict_v1", methods=["POST"])
 def predict_v1():
     try:
-        start_time = time.time()  # Start time for prediction
+        start_time = time.time()
 
-        # Get input features from the user
+        # Get input JSON
         input_data = request.get_json()
 
-        # Extract features from the input
-        screen_time = input_data.get('Screen_Time')
-        anxiety_level = input_data.get('Anxiety_Level')
-        sleep_hours = input_data.get('Sleep_Hours')
+        screen_time = input_data.get("Screen_Time")
+        anxiety_level = input_data.get("Anxiety_Level")
+        sleep_hours = input_data.get("Sleep_Hours")
 
         # Validate input
         if screen_time is None or anxiety_level is None or sleep_hours is None:
-            return jsonify({'error': 'Missing input data'}), 400
+            return jsonify({"error": "Missing input data"}), 400
 
-        # Process the input data
+        # Prepare features
         features = np.array([[screen_time, anxiety_level, sleep_hours]])
 
-        # Make the prediction using the trained model
+        # Predict
         prediction = model.predict(features)
 
-        # Map the prediction to a human-readable label
+        # Map prediction
         if prediction[0] == 0:
-            result_label = 'Normal'
+            result_label = "Normal"
         elif prediction[0] == 1:
-            result_label = 'Mild Stress'
+            result_label = "Mild Stress"
         elif prediction[0] == 2:
-            result_label = 'Anxiety'
+            result_label = "Anxiety"
         else:
-            result_label = 'Depression Risk'
+            result_label = "Depression Risk"
 
-        # End time for prediction
-        end_time = time.time()
-        execution_time = end_time - start_time  # Calculate time taken
+        execution_time = time.time() - start_time
 
-        # Return the result as JSON along with the execution time
-        result = {'prediction': result_label, 'execution_time': execution_time}
-        return jsonify(result)
+        return jsonify({
+            "prediction": result_label,
+            "execution_time": execution_time
+        })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-# Run the app with Waitress instead of Gunicorn
+
+# DO NOT use waitress or gunicorn here
+# Gunicorn will run this app automatically on Render
 if __name__ == "__main__":
-    serve(app, host='0.0.0.0', port=5000)
+    app.run()
+
